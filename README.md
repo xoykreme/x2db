@@ -1,6 +1,6 @@
 ﻿# x2db
 
-Import a customised Excel sheet (xls) into corresponding PostgreSQL tables via this nodejs module. You can repeatedly import newer spreadsheets and the tables should be updated accordingly. Pricing, availability & event dates have been broken out to referencing tables in anticipation of the need to have historical and immutable data for further analysis.
+Import a BigCommerce Excel sheet (xls) into corresponding PostgreSQL tables via this nodejs module. You can repeatedly import newer spreadsheets and the tables should be updated accordingly. Pricing, availability & event dates have been broken out to referencing tables in anticipation of the need to have historical and immutable data for further analysis.
 
 3Ds threw down a dusty gauntlet... and this sprung up :)
 
