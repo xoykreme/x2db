@@ -385,20 +385,20 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
         // d) found existing fk + old row (update row)
         // Also, is the intent based on the entire row or just the fk column only?
 
-        return trx.where(fk_key_value_pair).select('id').from(tablename).then(function(id) {
+        return trx.transacting(trx).forUpdate().where(fk_key_value_pair).select('id').from(tablename).then(function(id) {
 
             // id is either an array with an object inside, e.g. [{id:1}] or an empty array
             if (primary_key_is_empty(id)) { // no fk
 
-                return trx.where(composite_key).select('id', 'product').from('product').then(function(theproduct) {
+                return trx.transacting(trx).forUpdate().where(composite_key).select('id', 'product').from('product').then(function(theproduct) {
 
                     if (primary_key_is_empty(theproduct)) { // no fk + new row (scenario a)
 
-                        return trx.insert(fk_key_value_pair).into(tablename).then(function(model) { // intent is to insert the entire row
+                        return trx.transacting(trx).forUpdate().insert(fk_key_value_pair).into(tablename).then(function(model) { // intent is to insert the entire row
 
                             return Promise.map([ single_row_mapped_to_columns ], function(row) {
                                 row[columnname] = fk_hashtable[foreign_key];
-                                return trx.insert(row).into('product').then(function(model) {
+                                return trx.transacting(trx).forUpdate().insert(row).into('product').then(function(model) {
                                     console.log("New product id: '" + hashtable.id + "', item type '" + hashtable.item_type + "' inserted");
                                     return transaction_main(trx);
                                 });
@@ -409,14 +409,14 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
                     } else { // no fk + old row (scenario b)
 
                         // insert into target table to get the fk
-                        return trx.insert(fk_key_value_pair).into(tablename).then(function(fk_id) {
+                        return trx.transacting(trx).forUpdate().insert(fk_key_value_pair).into(tablename).then(function(fk_id) {
 
                             if (single_row_mapped_to_columns === null) { // intent is to just update the fk
 
                                 return Promise.map([], function(row) {
                                     // just update the fk column in the existing row
                                     row[columnname] = fk_hashtable[foreign_key];
-                                    return trx('product').where(composite_key).update(row).then(function(model) {
+                                    return trx('product').transacting(trx).forUpdate().where(composite_key).update(row).then(function(model) {
                                         console.log("Existing product id: '" + hashtable.id + "', item type '" + hashtable.item_type + "' has had foreign key column '" + foreign_key + "' updated");
                                         return transaction_main(trx);
                                     });
@@ -427,7 +427,7 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
                                 return Promise.map([ single_row_mapped_to_columns ], function(row) {
                                     // update entire row (along with the fk)
                                     row[columnname] = fk_hashtable[foreign_key];
-                                    return trx('product').where(composite_key).update(row).then(function(model) {
+                                    return trx('product').transacting(trx).forUpdate().where(composite_key).update(row).then(function(model) {
                                         console.log("Existing product id: '" + hashtable.id + "', item type '" + hashtable.item_type + "' is updated, along with foreign key column '" + foreign_key + "'");
                                         return transaction_main(trx);
                                     });
@@ -443,14 +443,14 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
 
                 var existing_fk_id = Number(id[0].id);
 
-                return trx.where(composite_key).select('id', 'item_type').from('product').then(function(composite_pk) {
+                return trx.transacting(trx).forUpdate().where(composite_key).select('id', 'item_type').from('product').then(function(composite_pk) {
 
                     if (primary_key_is_empty(composite_pk)) { // existing fk + new row (scenario c)
 
                         single_row_mapped_to_columns[foreign_key] = existing_fk_id;
                         return Promise.map([ single_row_mapped_to_columns ], function(row) { // intent is to insert the entire row
                             row[columnname] = Number(existing_fk_id);
-                            return trx.insert(row).into('product').then(function(model) {
+                            return trx.transacting(trx).forUpdate().insert(row).into('product').then(function(model) {
                                 console.log("New product id: '" + hashtable.id + "', item type '" + hashtable.item_type + "' inserted with existing foreign key column '" + foreign_key + "'");
                                 return transaction_main(trx);
                             });
@@ -459,13 +459,13 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
                     } else { // existing fk + old row (scenario d)
 
                         if (single_row_mapped_to_columns === null) {// intent is to just update the fk
-                            return trx('product').where(composite_key).update(foreign_key, existing_fk_id).then(function(model) {
+                            return trx('product').transacting(trx).forUpdate().where(composite_key).update(foreign_key, existing_fk_id).then(function(model) {
                                 console.log("Existing foreign key column '" + foreign_key + "' is updated for product id: '" + hashtable.id + "'");
                                 return transaction_main(trx);
                             });
                         } else {
                             single_row_mapped_to_columns[foreign_key] = existing_fk_id;
-                            return trx('product').where(composite_key).update(single_row_mapped_to_columns).then(function(model) {
+                            return trx('product').transacting(trx).forUpdate().where(composite_key).update(single_row_mapped_to_columns).then(function(model) {
                                 console.log("Existing product id: '" + hashtable.id + "', item type '" + hashtable.item_type + "' is updated, along with existing foreign key column '" + foreign_key + "'");
                                 return transaction_main(trx);
                             });
@@ -505,7 +505,7 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
 
         continue_after_inserting_new_row = function(_tablename, _primary_hashtable, _secondary_store, trxn) {
 
-            return tx(_tablename).insert(_secondary_store).then(function(_table) {
+            return tx(_tablename).transacting(trxn).forUpdate().insert(_secondary_store).then(function(_table) {
 
                 console.log("New row inserted into '" + _tablename + "' for product id '" + _primary_hashtable.id + "', item_type '" + _primary_hashtable.item_type + "'");
                 return transaction_secondary_referencing_tables(trxn);
@@ -515,7 +515,7 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
         };
 
         // check if row exists
-        return tx(referencing_tablename).where({
+        return tx(referencing_tablename).transacting(tx).forUpdate().where({
             product_id : hashtable.id,
             product_item_type : hashtable.item_type
         }).select().orderBy('created', 'desc').limit(1).then(function(model1) {
@@ -536,7 +536,7 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
                         model1[0][key] = null; // even out the playing field
                     }
                     if (referencing_store[key] !== model1[0][key]) {
-                        console.log(key + ' [' + typeof referencing_store[key] + '] [' + typeof model1[0][key] + '] : ' + referencing_store[key] + " vs " + model1[0][key]);
+                        //console.log(key + ' [' + typeof referencing_store[key] + '] [' + typeof model1[0][key] + '] : ' + referencing_store[key] + " vs " + model1[0][key]);
                         matches = false;
                         break; // ...but it doesn't match
                     }
@@ -557,9 +557,9 @@ function persist(orm, hashtable, primary_sequence_array, secondary_sequence_arra
      */
 
     function transaction_final_product_sku_relations(trnxn) {
-        return trnxn.where(product_sku_hashtable).select().from('product_sku').then(function(product_sku_row) {
+        return trnxn.transacting(trnxn).forUpdate().where(product_sku_hashtable).select().from('product_sku').then(function(product_sku_row) {
             if (primary_key_is_empty(product_sku_row) && product_sku_hashtable.product_id !== null && product_sku_hashtable.product_id !== product_sku_hashtable.sku_product_id && product_sku_hashtable.product_item_type !== product_sku_hashtable.sku_item_type) {
-                return trnxn.insert(product_sku_hashtable).into('product_sku').then(function(product_sku_model) {
+                return trnxn.transacting(trnxn).forUpdate().insert(product_sku_hashtable).into('product_sku').then(function(product_sku_model) {
                     console.log("Created product-sku relation: '" + JSON.stringify(product_sku_hashtable) + "'");
                     return trnxn;
                 });
