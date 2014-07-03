@@ -22,10 +22,12 @@
             first_sheet = workbook.Sheets[workbook.SheetNames[0]];
             titles = cache_titles(first_sheet);
             built = build_rows(first_sheet);
-            writer.write(dbdata, titles, built);
+            writer.write(dbdata,
+                         titles,
+                         built);
         }
     } catch (e) {
-        console.log(e.name + ": " + e.message);
+        console.log(e.stack);
         process.exit(1);
     }
 
@@ -135,7 +137,8 @@ function build_rows(sheet) {
         }
 
         // things that we need to do when it's a new row
-        if (is_new_row(current_cell_name, row_index)) {
+        if (is_new_row(current_cell_name,
+                       row_index)) {
             prev_cell_name = undefined; // reset cached previous cell name
             if (row.length) {
                 rows.push(row);// cache row
@@ -151,7 +154,9 @@ function build_rows(sheet) {
         non_title_row_pattern = '[A-Z]+' + row_index;
         if (new RegExp(non_title_row_pattern).test(current_cell_name)) {
             // join cell to row (and fill in any blank cells)
-            row = backfill_if_necessary(prev_cell_name, current_cell_name, row);
+            row = backfill_if_necessary(prev_cell_name,
+                                        current_cell_name,
+                                        row);
             row.push(sheet[current_cell_name]['v']);
             prev_cell_name = current_cell_name;
         }
@@ -170,11 +175,7 @@ function is_new_row(current_cell, current_counter) {
 }
 
 /**
- * Backfill empty cells between a given range, e.g. AA2 and AF2. Rolling my own
- * empty cell filler because xlsjs mostly doesn't include 'empty cells' (which
- * are actually virtual). xlsjs does have a sheet_to_csv() option but the csv
- * parsers out there aren't documented properly so think it's easier to use a
- * home-grown solution
+ * Backfill empty cells between a given range, e.g. AA2 and AF2. Rolling my own empty cell filler because xlsjs mostly doesn't include 'empty cells' (which are actually virtual). xlsjs does have a sheet_to_csv() option but the csv parsers out there aren't documented properly so think it's easier to use a home-grown solution
  * 
  * @param previous_cell_ref
  *            Last known good cell name e.g. AA2
@@ -182,15 +183,16 @@ function is_new_row(current_cell, current_counter) {
  *            Current cell name e.g. AF2
  * @param current_row
  *            The current row array
- * @returns If there was a need to backfill the row, the backfilled row array
- *          will be returned, otherwise the original row array is returned
+ * @returns If there was a need to backfill the row, the backfilled row array will be returned, otherwise the original row array is returned
  */
 function backfill_if_necessary(previous_cell_ref, current_cell_ref, current_row) {
 
     // e.g. backfill between AAA & ZZZ
     // first strip out row numbers
-    previous_cell_ref = (typeof previous_cell_ref === 'undefined') ? '@' : previous_cell_ref.replace(/[0-9]+/, '');
-    current_cell_ref = current_cell_ref.replace(/[0-9]+/, '');
+    previous_cell_ref = (typeof previous_cell_ref === 'undefined') ? '@' : previous_cell_ref.replace(/[0-9]+/,
+                                                                                                     '');
+    current_cell_ref = current_cell_ref.replace(/[0-9]+/,
+                                                '');
 
     var distances = [], prev_last_char, current_last_char;
     var lower = previous_cell_ref.length, upper = current_cell_ref.length;
@@ -198,14 +200,18 @@ function backfill_if_necessary(previous_cell_ref, current_cell_ref, current_row)
 
     // calculate how many empty skipped spaces we have to fill
     for (var i = -1, j = 0 - lower; i >= j; i--) {
-        prev_last_char = previous_cell_ref.substr(i, 1);
-        current_last_char = current_cell_ref.substr(i, 1);
-        distances.push(calculate_distance(prev_last_char, current_last_char));
+        prev_last_char = previous_cell_ref.substr(i,
+                                                  1);
+        current_last_char = current_cell_ref.substr(i,
+                                                    1);
+        distances.push(calculate_distance(prev_last_char,
+                                          current_last_char));
     }
 
     // e.g. backfill between A & ZZZ (extreme example but just to prove a point)
     if (lower < upper && !is_continuation_of_row) {
-        for (i = 0, j = upper - lower; i < j; i++) {
+        for (i = 0,
+             j = upper - lower; i < j; i++) {
             distances.push(26);// entire alphabet
         }
     }
