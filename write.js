@@ -9,9 +9,6 @@
  * @author xoykreme
  */
 
-// verbose debugging, comment to turn off
-require('longjohn');
-
 /**
  * Main module entry point
  * 
@@ -31,7 +28,8 @@ exports.write = function(dbdetail,
 };
 
 /**
- * Constructor function for instantiating temporary objects to store values from each row from the Excel sheet
+ * Constructor function for instantiating temporary objects to store values from
+ * each row from the Excel sheet
  */
 function TempRowTemplate() {
     this._item_type = null;
@@ -105,9 +103,10 @@ function TempRowTemplate() {
 }
 
 /**
- * Nquerybuilderalise spreadsheet headers into object key strings
+ * Convert spreadsheet headers into object key strings
  * <p>
- * Multiple spaces and non-alphanumeric characters are converted into single dashes
+ * Multiple spaces and non-alphanumeric characters are converted into single
+ * dashes
  * 
  * @param titles
  *            An array of the spreadsheet headers
@@ -130,11 +129,11 @@ function convert_titles_into_object_keys(titles) {
 }
 
 /**
- * Take db config params from CLI and instantiate bookshelf ORM
+ * Take db config params from CLI and instantiate knex query builder
  * 
  * @param connect_obj
  *            The db config params specified at runtime (CLI)
- * @returns
+ * @returns {Object}
  */
 function instantiate_querybuilder(connect_obj) {
     connect_obj.database = 'cw';
@@ -177,18 +176,23 @@ function map_xls_row_cells_to_skeleton_row(remaining_xls_rows,
 /**
  * There seems to be two types of rows in the spreadsheet, 'product's and 'sku's
  * <p>
- * The latter are variations of the fquerybuilderer (e.g. different size/colour etc)
+ * The latter are variations of the fquerybuilderer (e.g. different size/colour
+ * etc)
  * <p>
- * The latter also follows the fquerybuilderer so by 'looking ahead' we can cache the parent's attributes as the sku rows seem to be having more empty cells than the parent
+ * The latter also follows the fquerybuilderer so by 'looking ahead' we can
+ * cache the parent's attributes as the sku rows seem to be having more empty
+ * cells than the parent
  * <p>
- * It is thus assumed that the skus inherit their parent product's attributes where their cells are empty
+ * It is thus assumed that the skus inherit their parent product's attributes
+ * where their cells are empty
  * <p>
  * The cache won't change until the next row is a product
  * 
  * @param remaining_xls_rows
  *            Remaining unprocessed Excel rows
  * @param this_row
- *            Current spreadsheet row already mapped to column headers and cell values
+ *            Current spreadsheet row already mapped to column headers and cell
+ *            values
  * @returns {TempRowTemplate}
  */
 function cache_product_attributes_for_sku_rows(remaining_xls_rows,
@@ -196,7 +200,8 @@ function cache_product_attributes_for_sku_rows(remaining_xls_rows,
     var current_item_type = detect_this_row_type(remaining_xls_rows);
     var next_item_type = detect_next_item_type(remaining_xls_rows);
     if (current_item_type === 'product') {
-        this_row.parent_id = (next_item_type === 'sku') ? this_row.product_id : null;
+        this_row.parent_id = (next_item_type === 'sku') ? this_row.product_id
+                : null;
         this_row.parent_item_type = this_row.item_type;
     }
     return this_row;
@@ -213,8 +218,9 @@ function detect_this_row_type(remaining_rows) {
     var current_item_type = remaining_rows[0][0];
 
     if (typeof current_item_type !== 'string') {
-        throw new Error("Found item with no product type:\n" + JSON.stringify(remaining_rows[0])); // sorry we can't have
-        // type-less rows!
+        // sorry we can't have type-less rows
+        throw new Error("Found item with no product type:\n"
+                + JSON.stringify(remaining_rows[0]));
     }
 
     return current_item_type.toLowerCase().trim();
@@ -229,7 +235,8 @@ function detect_this_row_type(remaining_rows) {
  */
 function detect_next_item_type(remaining_rows) {
     // if the next product is a SKU, store the parent product id
-    if (typeof remaining_rows[1] !== 'undefined' && typeof remaining_rows[1][0] === 'string') {
+    if (typeof remaining_rows[1] !== 'undefined'
+            && typeof remaining_rows[1][0] === 'string') {
         return remaining_rows[1][0].toLowerCase().trim();
     }
 
@@ -245,9 +252,11 @@ function Product_sku_template() {
 }
 
 /**
- * Sku rows have lots of empty cells because the assumption is that the data can be pulled from the product row (parent)
+ * Sku rows have lots of empty cells because the assumption is that the data can
+ * be pulled from the product row (parent)
  * <p>
- * This function explicitly backfills those empty cells with product row's values
+ * This function explicitly backfills those empty cells with product row's
+ * values
  * 
  * @param remaining_rows
  *            Remaining unprocessed Excel rowss
@@ -261,14 +270,25 @@ function fill_in_empty_cells_for_sku_row(remaining_rows,
     } else { // sku
         product_row_cached = new Product_sku_template();
         for ( var key in this_row) {
-            if (String(this_row[key]) === 'undefined' || String(this_row[key]) === 'null') {
-                this_row[key] = product_row_cached[key]; // backfill empty cells; note parent cell may also be empty
+            if (String(this_row[key]) === 'undefined'
+                    || String(this_row[key]) === 'null') {
+                this_row[key] = product_row_cached[key]; // backfill empty
+                // cells; note
+                // parent cell may
+                // also be empty
             }
         }
     }
     return this_row;
 }
 
+/**
+ * Map spreadsheet rows into an object
+ * 
+ * @param store
+ *            A filled {TempRowTemplate} instance
+ * @returns {Object}
+ */
 function build_mapped_row_object(store) {
     return {
         // composite primary key
@@ -276,17 +296,22 @@ function build_mapped_row_object(store) {
         item_type : store._item_type.trim().toLowerCase(),
 
         name : store._product_name,
-        type : (typeof store._product_type === 'string') ? store._product_type.trim() : null,
+        type : (typeof store._product_type === 'string') ? store._product_type
+                .trim() : null,
         sku : store._product_code_sku,
         bin_picking_number : store._bin_picking_number,
         option_set : store._option_set,
         option_set_align : store._option_set_align,
         description : store._product_description,
         warranty : store._product_warranty,
-        weight : (typeof store._product_weight === undefined || store._product_weight === null) ? 0 : store._product_weight * 1000,
-        width : (typeof store._product_width === undefined || store._product_width === null) ? 0 : store._product_width,
-        height : (typeof store._product_height === undefined || store._product_height === null) ? 0 : store._product_height,
-        depth : (typeof store._product_depth === undefined || store._product_depth === null) ? 0 : store._product_depth,
+        weight : (typeof store._product_weight === undefined || store._product_weight === null) ? 0
+                : store._product_weight * 1000,
+        width : (typeof store._product_width === undefined || store._product_width === null) ? 0
+                : store._product_width,
+        height : (typeof store._product_height === undefined || store._product_height === null) ? 0
+                : store._product_height,
+        depth : (typeof store._product_depth === undefined || store._product_depth === null) ? 0
+                : store._product_depth,
         allow_purchases : booleanise_yes_no(store._allow_purchases),
         is_visible : booleanise_yes_no(store._product_visible),
         category : store._category,
@@ -304,8 +329,10 @@ function build_mapped_row_object(store) {
         myob_income_account : store._myob_income_acct,
         myob_expenditure_account : store._myob_expense_acct,
         show_product_condition : store._show_product_condition,
-        sort_order : (Number.isNaN(Number(store._sort_order))) ? null : Number(store._sort_order),
-        ean : (typeof store._product_upc_ean === 'undefined' || store._product_upc_ean === null) ? '' : store._product_upc_ean.trim(),
+        sort_order : (Number.isNaN(Number(store._sort_order))) ? null
+                : Number(store._sort_order),
+        ean : (typeof store._product_upc_ean === 'undefined' || store._product_upc_ean === null) ? ''
+                : store._product_upc_ean.trim(),
         stop_processing_rules : booleanise_yes_no(store._stop_processing_rules),
         product_url : store._product_url,
         redirect_old_url : booleanise_yes_no(store._redirect_old_url),
@@ -317,10 +344,20 @@ function build_mapped_row_object(store) {
     };
 }
 
+/**
+ * Prepare an object where the keys are the product table's foreign keys and the
+ * values are the values to be compared against and inserted if necessary into
+ * the foreign tables
+ * 
+ * @param store
+ *            A filled {TempRowTemplate} instance
+ * @returns {Object}
+ */
 function build_fk_map(store) {
     return {
         // fk column name : foreign key values
-        brand_id : (typeof store._brand_name === 'undefined' || store._brand_name === null) ? null : store._brand_name.trim(),
+        brand_id : (typeof store._brand_name === 'undefined' || store._brand_name === null) ? null
+                : store._brand_name.trim(),
         gps_age_group_id : store._gps_age_group,
         gps_category_id : store._gps_category,
         gps_colour_id : store._gps_colour,
@@ -332,10 +369,20 @@ function build_fk_map(store) {
     };
 }
 
+/**
+ * A product is a parent to a sku. We record that relationship in the
+ * product_sku table
+ * 
+ * @param store
+ *            A filled {TempRowTemplate} instance
+ * @returns {Object}
+ */
 function build_product_sku_relation(store) {
     return {
         product_id : Number(store.parent_id),
-        product_item_type : (typeof store.parent_item_type === 'string') ? store.parent_item_type.trim().toLowerCase() : null,
+        product_item_type : (typeof store.parent_item_type === 'string') ? store.parent_item_type
+                .trim().toLowerCase()
+                : null,
         sku_product_id : Number(store._product_id),
         sku_item_type : store._item_type.trim().toLowerCase()
     };
@@ -346,8 +393,9 @@ function build_product_sku_relation(store) {
 function build_pricing_object(store) {
     return {
         created : new Date().toJSON().replace('T',
-                                              ' ').replace(/^([^.]+)\.[0-9]+Z$/,
-                                                           '$1'),
+                                              ' ')
+                .replace(/^([^.]+)\.[0-9]+Z$/,
+                         '$1'),
         price : integerise(store._price),
         costprice : integerise(store._cost_price),
         retailprice : integerise(store._retail_price),
@@ -361,8 +409,9 @@ function build_pricing_object(store) {
 function build_availability_object(store) {
     return {
         created : new Date().toJSON().replace('T',
-                                              ' ').replace(/^([^.]+)\.[0-9]+Z$/,
-                                                           '$1'),
+                                              ' ')
+                .replace(/^([^.]+)\.[0-9]+Z$/,
+                         '$1'),
         availability : store._availablity,
         track_inventory : store._track_inventory,
         current_stock_level : Number(store._current_stock_level),
@@ -384,30 +433,11 @@ function build_event_date_object(store) {
     };
 }
 
-// utils
-
-function booleanise_yes_no(value) {
-    return (typeof value === 'string' && value.trim().toLowerCase() === 'y');
-}
-
-function integerise(value) {
-    return Number(String(value).replace(/[^0-9]+/g,
-                                        ''));
-}
-
-function parse_date(value) {
-    value = String(value).trim();
-    return (/^[0-9]{2}([0-9]{2}-){2}[0-9]{2}\s([0-9]{2}:){2}[0-9]{2}$/g.test(value)) ? value : null;
-}
-
-function check_is_array(input) {
-    return typeof input === 'object' && typeof input.length === 'number';
-}
-
 // prepare for persistence into Postgres
 
 /**
- * Constructor for storing main row, referencing tables', foreign keys' and product-sku table data
+ * Constructor for storing main row, referencing tables', foreign keys' and
+ * product-sku table data
  * 
  * @param row
  *            Main row object with data already mapped
@@ -437,7 +467,8 @@ function Prepared_data(row,
 }
 
 /**
- * Prepare database transaction data by mapping data values to various objects, then returning a container object containing these processed objects
+ * Prepare database transaction data by mapping data values to various objects,
+ * then returning a container object containing these processed objects
  * 
  * @param rows
  * @param headers
@@ -539,6 +570,8 @@ function build_fk_map_collection() {
     return collection;
 }
 
+/* ASYNC SECTION */
+
 /**
  * Write processed spreadsheet data to database
  * 
@@ -553,49 +586,62 @@ function write_processed_rows_to_database(connection_data,
                                           spreadsheet_rows) {
 
     var querybuilder = instantiate_querybuilder(connection_data);
-    var data;
+    var headers = convert_titles_into_object_keys(spreadsheet_headers);
 
-    spreadsheet_headers = convert_titles_into_object_keys(spreadsheet_headers);
-
-    do {
-
-        data = prepare_processed_data(spreadsheet_rows,
-                                      spreadsheet_headers);
-        persist_row(querybuilder,
-                    data);
-        break;
-
-    } while (spreadsheet_rows.length > 0);
-
-}
-
-/* ASYNC SECTION */
-
-function persist_row(the_querybuilder,
-                     prepared_data) {
-
-    Data({
-        querybuilder : the_querybuilder,
-        prepared : prepared_data
-    });
-
-    do_transaction(the_querybuilder);
+    start_async_chain({
+                          querybuilder : querybuilder,
+                          headers : headers
+                      },
+                      function() {
+                          return prepare_rows(spreadsheet_rows,
+                                              this.headers);
+                      }).map(do_transaction,
+                             {
+                                 concurrency : parseFloat("Infinity")
+                             }).then(function() {
+        process.exit(0);
+    }).caught(verbose_error);
 
 }
 
-function do_transaction(querybuilder) {
-    querybuilder.transaction(sequence).then().caught(function(error) {
-        console.log(error.stack);
+function prepare_rows(excel_rows,
+                      excel_headers) {
 
-        // do_transaction(data.querybuilder);
-    });
+    var prepared_rows = [];
+    var rows_working_copy = cloner(excel_rows);
+
+    while (rows_working_copy.length > 0) {
+        prepared_rows.push(prepare_processed_data(rows_working_copy,
+                                                  excel_headers));
+        rows_working_copy.shift();
+    }
+
+    return prepared_rows;
 }
 
-function sequence(query_build) {
-    var Promise = require('bluebird');
-    return Promise.join(query_build,
-                        line_up_foreign_keys(query_build),
-                        load_foreign_keys_into_main_row).then(referencing_table_controller);
+function do_transaction(prepared) {
+
+    // yeah have to 'cheat' a bit using closures
+    // (i.e. a global variable to burst the perfectionist bubble :) )
+    var querybuilder = this.querybuilder;
+
+    return querybuilder.transaction(function(transaction_object) {
+
+        return start_async_chain({
+                                     prepared : prepared,
+                                     querybuilder : querybuilder,
+                                     transaction_object : transaction_object
+                                 },
+                                 function() {
+                                     return build_fk_map_collection();
+                                 }).map(get_foreign_table_primary_key)
+                .then(load_foreign_keys_into_main_row)
+                .then(check_if_product_exists).then(main_row_controller)
+                .then(cache_composite_primary_key_for_new_rows)
+                .then(build_referencing_array)
+                .map(referencing_table_upsert_process).caught(verbose_error);
+
+    }).then().caught(verbose_error);
 }
 
 /**
@@ -603,86 +649,79 @@ function sequence(query_build) {
  * 
  * @param query_builder
  *            The Knex object
- * @returns a Thenable to pass on to stage two
+ * @returns a thenable to pass on to stage two
  */
-function line_up_foreign_keys(query_builder) {
 
-    // cache useful objects
-    var data = new Data();
-    data.query_builder = query_builder;
-    Data(data);
-
-    var Promise = require('bluebird');
-
-    return Promise.map(build_fk_map_collection(),
-                       foreign_table_upsert_wrapper);
-
-}
-
-function foreign_table_upsert_wrapper(current_foreign_table_and_fk_data) {
-
-    var data = new Data();
-    data.current_stage = current_foreign_table_and_fk_data;
-    Data(data);
-
-    return get_foreign_table_primary_key(data.query_builder);
-}
-
-function get_foreign_table_primary_key(build_query) {
-
-    var data = new Data();
-
+function get_foreign_table_primary_key(current_stage) {
     var fk_where = {};
-    var key = data.current_stage.columnname;
-    var value = data.prepared.foreign_keys_map[data.current_stage.product_fk_columnname];
+    var key = current_stage.columnname;
+    var value = this.prepared.foreign_keys_map[current_stage.product_fk_columnname];
     if (typeof value === 'undefined' || value === null) { // no point
         // inserting empty rows
         return;
     }
-    fk_where[key] = value; // object with foreign table column name as key and column value as value
+    fk_where[key] = value; // object with foreign table column name as key and
+    // column value as value
 
-    var Promise = require('bluebird');
-    return Promise.join(data,
-                        build_query(data.current_stage.tablename).transacting(build_query).forUpdate().where(fk_where).select('id'),
-                        foreign_table_and_keys_controller);
+    return start_async_chain({
+                                 prepared : this.prepared,
+                                 querybuilder : this.querybuilder,
+                                 transaction_object : this.transaction_object,
+                                 current_stage : current_stage
+                             },
+                             function() {
+                                 return this
+                                         .querybuilder(current_stage.tablename)
+                                         .transacting(this.transaction_object)
+                                         .forUpdate()
+                                         .where(fk_where)
+                                         .select('id')
+                                         .bind(this)
+                                         .then(insert_foreign_table_condition)
+                                         .then(conditional_new_row_in_foreign_table)
+                                         .then(prepare_individual_foreign_key);
+                             });
 }
 
-function foreign_table_and_keys_controller(data,
-                                           id) {
+function insert_foreign_table_condition(id) {
+
+    this.insert_foreign_table = false;
 
     if (non_composite_primary_key_is_empty(id)) {
+        this.insert_foreign_table = true;
 
-        console.log('Inserting new row into foreign table ' + data.current_stage.tablename);
-
-        return insert_foreign_table(data);
+        console.log('Inserting new row into foreign table '
+                + this.current_stage.tablename);
     }
 
-    return prepare_individual_foreign_key(data,
-                                          id);
+    return id;
 }
 
-function insert_foreign_table(data) {
+function conditional_new_row_in_foreign_table(id) {
 
-    var what_to_insert = {};
-    what_to_insert[data.current_stage.columnname] = data.prepared.foreign_keys_map[data.current_stage.product_fk_columnname];
+    if (this.insert_foreign_table === true) {
 
-    var Promise = require('bluebird');
-    return Promise.join(data,
-                        data.query_builder(data.current_stage.tablename).transacting(data.query_builder).returning('id').insert(what_to_insert),
-                        prepare_individual_foreign_key);
+        var what_to_insert = {};
+        what_to_insert[this.current_stage.columnname] = this.prepared.foreign_keys_map[this.current_stage.product_fk_columnname];
+
+        return this.querybuilder(this.current_stage.tablename)
+                .transacting(this.transaction_object).returning('id')
+                .insert(what_to_insert);
+
+    }
+    return id;
 }
 
-function prepare_individual_foreign_key(data,
-                                        foreign_table_primary_key) {
+function prepare_individual_foreign_key(foreign_table_primary_key) {
     var value;
     if (check_is_array(foreign_table_primary_key)) {
         value = foreign_table_primary_key.shift();
-        if (typeof value === 'object') {
+        if (typeof value === 'object' && typeof value.id !== 'undefined') {
             value = value.id;
         }
     }
     var indiv = {};
-    indiv[data.current_stage.product_fk_columnname] = value;
+    indiv[this.current_stage.product_fk_columnname] = value;
     return indiv;
 }
 
@@ -695,199 +734,228 @@ function prepare_individual_foreign_key(data,
  *            The array of found/generated foreign keys, if any
  * @return Promise
  */
-function load_foreign_keys_into_main_row(query_builder,
-                                         foreign_keys) {
+function load_foreign_keys_into_main_row(foreign_keys) {
 
-    var data = new Data();
     var this_key;
 
     for (var i = 0; i < foreign_keys.length; i++) {
 
         if (typeof foreign_keys[i] !== 'undefined' && foreign_keys[i] !== null) {
             this_key = Object.keys(foreign_keys[i])[0];
-            data.prepared.row[this_key] = foreign_keys[i][this_key];
+            this.prepared.row[this_key] = foreign_keys[i][this_key];
         }
 
     }
-    Data(data);
 
-    var current_product_composite_primary_key = {
-        id : data.prepared.row.id,
-        item_type : data.prepared.row.item_type
+    return {
+        id : this.prepared.row.id,
+        item_type : this.prepared.row.item_type
     };
-
-    return check_if_product_exists(current_product_composite_primary_key,
-                                   query_builder,
-                                   data);
 }
 
-function check_if_product_exists(composite_key,
-                                 build_query,
-                                 cached) {
-    cached.querybuilder = build_query;
-    var Promise = require('bluebird');
-    return Promise.join(cached,
-                        build_query('product').transacting(build_query).forUpdate().where(composite_key).select('id',
-                                                                                                                'item_type'),
-                        main_row_controller);
+function check_if_product_exists(current_product_composite_primary_key) {
+
+    return this.querybuilder('product').transacting(this.transaction_object)
+            .forUpdate().where(current_product_composite_primary_key)
+            .select('id',
+                    'item_type');
+
 }
 
-function main_row_controller(data,
-                             main_row_composite_key) {
-    // cache current state
-    Data(data);
+function main_row_controller(current_product_composite_primary_key) {
 
-    var Promise = require('bluebird');
-    if (composite_primary_key_is_not_empty(main_row_composite_key)) {
+    this.composite_primary_key = null;
+
+    if (composite_primary_key_is_not_empty(current_product_composite_primary_key)) {
+
+        // cache composite key
+        this.composite_primary_key = current_product_composite_primary_key[0];
+
+        console.log("Updated " + this.composite_primary_key.item_type
+                + " with id " + this.composite_primary_key.id);
 
         // update existing row
-        return Promise.join(main_row_composite_key,
-                            data.querybuilder('product').transacting(data.querybuilder).where(main_row_composite_key[0]).update(data.prepared.row),
-                            function(composite_key) {
-                                console.log("Updated " + composite_key[0].item_type + " with id " + composite_key[0].id);
-                            });
+        return this.querybuilder('product')
+                .transacting(this.transaction_object)
+                .where(this.composite_primary_key).update(this.prepared.row);
     }
 
     // insert new row
-    return Promise.join(data,
-                        data.querybuilder('product').transacting(data.querybuilder).insert(data.prepared.row),
-                        function(cache) {
-                            console.log("Inserted " + cache.prepared.row.item_type + " with id " + cache.prepared.row.id);
-                        });
+    return this.querybuilder('product').transacting(this.transaction_object)
+            .returning('id').insert(this.prepared.row);
 
+}
+
+function cache_composite_primary_key_for_new_rows(id) {
+
+    if (this.composite_primary_key === null) {// yes this is a new row
+
+        this.composite_primary_key = {
+            id : Number(id),
+            item_type : this.prepared.row.item_type
+        };
+
+        console.log("Inserted " + this.composite_primary_key.item_type
+                + " with id " + this.composite_primary_key.id);
+
+    }
 }
 
 /**
- * Stage three, record referencing pricing, availability and event_date table data
+ * Stage three, record referencing pricing, availability and event_date table
+ * data
  */
 
-function referencing_table_controller() {
-    var Promise = require('bluebird');
-    var data = new Data();
-    return Promise.map([ {
-                           pricing : data.prepared.pricing
-                       }, {
-                           availability : data.prepared.availability
-                       }, {
-                           event_date : data.prepared.event_date
-                       } ],
-                       referencing_table_upsert_precheck);
+function build_referencing_array() {
+    return [ {
+        pricing : this.prepared.pricing
+    }, {
+        availability : this.prepared.availability
+    }, {
+        event_date : this.prepared.event_date
+    } ];
 }
 
-function referencing_table_upsert_precheck(referencing_table_object) {
-    var referencing_table_name = Object.keys(referencing_table_object)[0];
-    var referencing_table_data = referencing_table_object[referencing_table_name];
-    var data = new Data();
-    var querybuilder = data.querybuilder;
-    var product_composite_key = {
-        product_id : data.prepared.row.id,
-        product_item_type : data.prepared.row.item_type
-    };
-    var Promise = require('bluebird');
+function duplicate_context(that) {
+    var cloned = {};
+    for ( var key in that) {
+        cloned[key] = that[key];
+    }
+    return cloned;
+}
+
+function referencing_table_upsert_process(referencing_table_object) {
+
+    this.referencing_table_name = Object.keys(referencing_table_object)[0];
+    this.referencing_table_data = referencing_table_object[this.referencing_table_name];
 
     // cache product table composite key first
-    referencing_table_data.product_id = data.prepared.row.id;
-    referencing_table_data.product_item_type = data.prepared.row.item_type;
+    this.referencing_table_data.product_id = this.prepared.row.id;
+    this.referencing_table_data.product_item_type = this.prepared.row.item_type;
 
-    return Promise.join(referencing_table_name,
-                        referencing_table_data,
-                        querybuilder(referencing_table_name).transacting(querybuilder).forUpdate().where(product_composite_key).orderBy('created',
-                                                                                                                                        'desc').limit(1),
-                        referencing_table_upsert_do);
+    var where_product_fk = {
+        product_id : this.prepared.row.id,
+        product_item_type : this.prepared.row.item_type
+    };
+
+    var context = duplicate_context(this);
+
+    return this.querybuilder(this.referencing_table_name)
+            .transacting(this.transaction_object).forUpdate()
+            .where(where_product_fk).orderBy('created',
+                                             'desc').limit(1).bind(context)
+            .then(cache_searched_row).then(init_insert_new_row_detector)
+            .then(referencing_table_compare_latest_row)
+            .then(referencing_table_conditional_insert)
+            .then(conditionally_note_no_action);
 }
 
-function referencing_table_compare_latest_row(table_name,
-                                              table_data,
-                                              existing_row) {
-    var data = new Data();
-    for ( var key in existing_row[0]) {
-        if (key === 'id' || key === 'product_id' || key === 'product_item_type' || key === 'created') { // can skip comparison for these common keys
-            continue;
+function cache_searched_row(searched_row) {
+    this.searched_row = searched_row.shift();
+}
+
+function init_insert_new_row_detector() {
+    this.insert_new_row = false;
+}
+
+function referencing_table_compare_latest_row() {
+
+    // check if we already have an existing row
+    if (typeof this.searched_row !== 'undefined') { // yes we do
+
+        // compare existing row to spreadsheet data
+        for ( var key in this.searched_row) {
+
+            // can skip comparison for these common keys
+            if (key === 'id' || key === 'product_id'
+                    || key === 'product_item_type' || key === 'created') {
+                continue;
+            }
+
+            if (typeof this.prepared[this.referencing_table_name][key] === 'undefined') {
+                // even out comparison fields
+                this.prepared[this.referencing_table_name][key] = null;
+            }
+
+            // they're not the same... insert new row
+            if (this.prepared[this.referencing_table_name][key] !== this.searched_row[key]) {
+                this.insert_new_row = true;
+                return;
+            }
         }
-        if (typeof data.prepared[table_name][key] === 'undefined') {
-            data.prepared[table_name][key] = null; // even out playing field
-        }
-        if (data.prepared[table_name][key] !== existing_row[0][key]) {
-            return false;
-        }
+    } else { // no we don't, insert please
+        this.insert_new_row = true;
     }
-    return true;
 }
 
-function referencing_table_upsert_do(tablename,
-                                     tabledata,
-                                     latest_row) {
-
-    var data = new Data();
-    var querybuilder = data.querybuilder;
+function referencing_table_conditional_insert() {
 
     // insert new referencing table row
-    if (latest_row.length === 0) {
-        console.log('\tInserted new row in ' + tablename);
-        return querybuilder(tablename).transacting(querybuilder).insert(tabledata);
-    }
+    if (this.insert_new_row === true) {
 
-    // update existing referencing table row
-    if (!referencing_table_compare_latest_row(tablename,
-                                              tabledata,
-                                              latest_row)) {
-        console.log('\tUpdated ' + tablename);
-        return querybuilder(tablename).transacting(querybuilder).where('id',
-                                                                       Number(id[0].id)).update(tabledata);
-    }
+        console.log('\tInserted new row in ' + this.referencing_table_name);
 
-    // no difference with latest row
-    console.log('\tNo difference with latest row in ' + tablename + ' table');
+        return this.querybuilder(this.referencing_table_name)
+                .transacting(this.transaction_object)
+                .insert(this.referencing_table_data);
+    }
 }
 
-/* Common functions */
+function conditionally_note_no_action() {
 
-/**
- * Check if a returned primary key array object is empty or not
- * 
- * @param pk
- *            The primary key array object (if populated usually is an array with a single object member)
- * @returns {Boolean}
- */
+    if (this.insert_new_row === false) {
+
+        // no difference with latest row
+        console.log('\tNo difference with latest row in '
+                + this.referencing_table_name + ' table');
+    }
+}
+
+/* UTILS */
+
+function start_async_chain(data,
+                           func) {
+    var Promise = require('bluebird');
+    // yeah hack needed, Promise.promisify(func).bind() doesn't work
+    return Promise.delay(0).bind(data).then(func);
+}
+
+function cloner(clonee) {
+    return JSON.parse(JSON.stringify(clonee));
+}
+
+function booleanise_yes_no(value) {
+    return (typeof value === 'string' && value.trim().toLowerCase() === 'y');
+}
+
+function integerise(value) {
+    return Number(String(value).replace(/[^0-9]+/g,
+                                        ''));
+}
+
+function parse_date(value) {
+    value = String(value).trim();
+    return (/^[0-9]{2}([0-9]{2}-){2}[0-9]{2}\s([0-9]{2}:){2}[0-9]{2}$/g
+            .test(value)) ? value : null;
+}
+
+function check_is_array(input) {
+    return typeof input === 'object' && typeof input.length === 'number';
+}
+
+function verbose_error(err) {
+    console.log(err.stack);
+    process.exit(1);
+}
+
 function non_composite_primary_key_is_empty(pk) {
     return (typeof pk === 'undefined' || pk === null || pk.length === 0 || typeof pk.length === 'undefined');
 }
 
 function composite_primary_key_is_not_empty(composite_pk) {
-    return typeof composite_pk === 'object' && typeof composite_pk[0] === 'object' && typeof composite_pk[0].id === 'number' && typeof composite_pk[0].item_type === 'string' && composite_pk[0].item_type.length > 0;
-}
-
-/**
- * The secret sauce to getting data in and out of a function context without going through the constructor
- * <p>
- * To load data (outside the function - Data({"hello":"there"});
- * <p>
- * To retrieve the data (inside the function - var a = new Data();)
- * 
- * Not asynchronous, so we need help from promises (e.g. Promise.join) to preserve state
- * 
- * @param obj
- *            A standard JSON object
- */
-function Data(obj) {
-
-    var Template = function() {
-        var ix, each_object, key;
-        for (ix in arguments) {
-            each_object = arguments[ix];
-            for (key in each_object) {
-                this[key] = each_object[key];
-            }
-        }
-    };
-
-    if (typeof obj === 'object' && String(obj) === '[object Object]') {
-        Data.prototype = new Template(obj);
-        return;
-    }
-
-    var key;
-    for (key in Data.prototype) {
-        this[key] = Data.prototype[key];
-    }
+    return typeof composite_pk === 'object'
+            && typeof composite_pk[0] === 'object'
+            && typeof composite_pk[0].id === 'number'
+            && typeof composite_pk[0].item_type === 'string'
+            && composite_pk[0].item_type.length > 0;
 }
