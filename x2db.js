@@ -11,7 +11,7 @@
 
 // main
 (function() {
-    var xls = require('xlsjs'), writer = require('./write2.js');
+    var xls = require('xlsjs'), writer = require('./write.js');
     var cli_opt, xlsfilepath, dbdata, workbook, first_sheet, titles, built;
     try {
         cli_opt = init_cli_opt();
